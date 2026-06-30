@@ -4,6 +4,12 @@ project(VSApp C CXX)
 set(CMAKE_CXX_STANDARD 23)
 
 add_subdirectory(lib/glfw)
+add_subdirectory(lib/FFmpeg)
 
-add_executable(vsapp src/main.cxx)
-target_link_libraries(vsapp glfw GL GLU X11)
+list(APPEND SOURCES
+    src/main.cxx
+    src/load_frame.cxx
+)
+
+add_executable(vsapp ${SOURCES})
+target_link_libraries(vsapp FFmpeg glfw GL GLU X11)
