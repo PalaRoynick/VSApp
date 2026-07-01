@@ -1,10 +1,11 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
 #include <inttypes.h>
 }
 
-bool load_frame(const char* filename, int* width, int* height, unsigned char** data) {
+bool load_frame(const char* filename, int* width_out, int* height_out, unsigned char** data_out) {
     AVFormatContext* av_format_ctx = avformat_alloc_context();
     if (!av_format_ctx) {
         printf("Could not create AVFormatContext\n");
@@ -47,7 +48,7 @@ bool load_frame(const char* filename, int* width, int* height, unsigned char** d
         return false;
     }
 
-    if (!avcodec_parameters_to_context(av_codec_ctx, av_codec_params)) {
+    if (avcodec_parameters_to_context(av_codec_ctx, av_codec_params) < 0) {
         printf("Could not initialize AVCodecContext\n");
     }
 
@@ -56,8 +57,63 @@ bool load_frame(const char* filename, int* width, int* height, unsigned char** d
         return false;
     }
 
+    AVFrame* av_frame = av_frame_alloc();
+    if (!av_frame) {
+        printf("Could not allocate AVFrame\n");
+        return false;
+    }
+
+    AVPacket* av_packet = av_packet_alloc();
+    if (!av_packet) {
+        printf("Could not allocate AVPacket\n");
+        return false;
+    }
+
+    // we are looking for a packet for the video stream only
+    int response;
+    while (av_read_frame(av_format_ctx, av_packet) >= 0) {
+        if (av_packet->stream_index != video_stream_index) {
+            continue;
+        }
+
+        response = avcodec_send_packet(av_codec_ctx, av_packet);
+        if (response < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_make_error_string(errbuf, sizeof(errbuf), response);
+            printf("Failed to decode packet : %s\n", errbuf);
+            return false;
+        }
+
+        response = avcodec_receive_frame(av_codec_ctx, av_frame);
+        if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+            continue;
+        } else if (response < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_make_error_string(errbuf, sizeof(errbuf), response);
+            printf("Failed to decode frame : %s\n", errbuf);
+            return false;
+        }
+
+        av_packet_unref(av_packet);
+        break;
+    }
+
+    unsigned char* data = new unsigned char[av_frame->width * av_frame->height * 3];
+    for (int x = 0; x < av_frame->width; ++x) {
+        for (int y = 0; y < av_frame->height; ++y) {
+            data[y * av_frame->width * 3 + x * 3    ] = av_frame->data[0][y * av_frame->linesize[0] + x];
+            data[y * av_frame->width * 3 + x * 3 + 1] = av_frame->data[0][y * av_frame->linesize[0] + x];
+            data[y * av_frame->width * 3 + x * 3 + 2] = av_frame->data[0][y * av_frame->linesize[0] + x];
+        }
+    }
+    *width_out = av_frame->width;
+    *height_out = av_frame->height;
+    *data_out = data;
+
     avformat_close_input(&av_format_ctx);
     avformat_free_context(av_format_ctx);
+    av_frame_free(&av_frame);
+    av_packet_free(&av_packet);
     avcodec_free_context(&av_codec_ctx);
 
     return true;

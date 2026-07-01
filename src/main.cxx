@@ -46,7 +46,7 @@ int main() {
         glfwGetFramebufferSize(window, &window_width, &window_height);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glOrtho(0, window_width, 0, window_height, -1, 1);
+        glOrtho(0, window_width, window_height, 0, -1, 1);
         glMatrixMode(GL_MODELVIEW);
 
         // render whatever you want
