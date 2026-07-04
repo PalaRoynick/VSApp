@@ -3,6 +3,7 @@
 bool video_reader_open(VideoReaderState* state, const char* filename) {
     auto& width = state->width;
     auto& height = state->height;
+    auto& time_base = state->time_base;
     auto& av_format_ctx = state->av_format_ctx;
     auto& av_codec_ctx = state->av_codec_ctx;
     auto& video_stream_index = state->video_stream_index;
@@ -37,6 +38,7 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
             video_stream_index = i;
             width = av_codec_params->width;
             height = av_codec_params->height;
+            time_base = av_format_ctx->streams[i]->time_base;
             break;
         }
     }
@@ -77,7 +79,7 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
     return true;
 }
 
-bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer) {
+bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int64_t* pts) {
     auto& width = state->width;
     auto& height = state->height;
     auto& av_format_ctx = state->av_format_ctx;
@@ -91,6 +93,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer) {
     int response;
     while (av_read_frame(av_format_ctx, av_packet) >= 0) {
         if (av_packet->stream_index != video_stream_index) {
+            av_packet_unref(av_packet);
             continue;
         }
 
@@ -104,6 +107,7 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer) {
 
         response = avcodec_receive_frame(av_codec_ctx, av_frame);
         if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+            av_packet_unref(av_packet);
             continue;
         } else if (response < 0) {
             char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -115,6 +119,8 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer) {
         av_packet_unref(av_packet);
         break;
     }
+
+    *pts = av_frame->pts;
 
     if (!sws_scaler_ctx) {
         sws_scaler_ctx = sws_getContext(

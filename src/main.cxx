@@ -55,10 +55,23 @@ int main() {
         glMatrixMode(GL_MODELVIEW);
 
         // read a new frame and load it into the texture
-        if (!video_reader_read_frame(&vr_state, frame_data)) {
+        int64_t pts;
+        if (!video_reader_read_frame(&vr_state, frame_data, &pts)) {
             printf("Could not load video frame\n");
             return 1;
         }
+
+        static bool first_frame = true;
+        if (first_frame) {
+            glfwSetTime(0.0);
+            first_frame = false;
+        }
+
+        double pt_in_seconds = pts * (double)vr_state.time_base.num / (double)vr_state. time_base.den;
+        while (glfwGetTime() < pt_in_seconds) {
+            glfwWaitEventsTimeout(pt_in_seconds - glfwGetTime());
+        }
+
         glBindTexture(GL_TEXTURE_2D, tex_handle);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame_width, frame_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame_data);
 
