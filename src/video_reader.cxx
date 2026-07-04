@@ -1,12 +1,15 @@
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
-#include <inttypes.h>
-}
+#include "video_reader.hpp"
 
-bool load_frame(const char* filename, int* width_out, int* height_out, unsigned char** data_out) {
-    AVFormatContext* av_format_ctx = avformat_alloc_context();
+bool video_reader_open(VideoReaderState* state, const char* filename) {
+    auto& width = state->width;
+    auto& height = state->height;
+    auto& av_format_ctx = state->av_format_ctx;
+    auto& av_codec_ctx = state->av_codec_ctx;
+    auto& video_stream_index = state->video_stream_index;
+    auto& av_frame = state->av_frame;
+    auto& av_packet = state->av_packet;
+
+    av_format_ctx = avformat_alloc_context();
     if (!av_format_ctx) {
         printf("Could not create AVFormatContext\n");
         return false;
@@ -17,7 +20,7 @@ bool load_frame(const char* filename, int* width_out, int* height_out, unsigned 
         return false;
     }
 
-    int video_stream_index = -1;
+    video_stream_index = -1;
     AVCodecParameters* av_codec_params;
     AVCodec* av_codec;
 
@@ -32,6 +35,8 @@ bool load_frame(const char* filename, int* width_out, int* height_out, unsigned 
 
         if (av_codec_params->codec_type == AVMEDIA_TYPE_VIDEO) {
             video_stream_index = i;
+            width = av_codec_params->width;
+            height = av_codec_params->height;
             break;
         }
     }
@@ -42,7 +47,7 @@ bool load_frame(const char* filename, int* width_out, int* height_out, unsigned 
     }
 
     // set up a codec context for the decoder
-    AVCodecContext* av_codec_ctx = avcodec_alloc_context3(av_codec);
+    av_codec_ctx = avcodec_alloc_context3(av_codec);
     if (!av_codec_ctx) {
         printf("Could not create AVCodecContext\n");
         return false;
@@ -57,17 +62,30 @@ bool load_frame(const char* filename, int* width_out, int* height_out, unsigned 
         return false;
     }
 
-    AVFrame* av_frame = av_frame_alloc();
+    av_frame = av_frame_alloc();
     if (!av_frame) {
         printf("Could not allocate AVFrame\n");
         return false;
     }
 
-    AVPacket* av_packet = av_packet_alloc();
+    av_packet = av_packet_alloc();
     if (!av_packet) {
         printf("Could not allocate AVPacket\n");
         return false;
     }
+
+    return true;
+}
+
+bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer) {
+    auto& width = state->width;
+    auto& height = state->height;
+    auto& av_format_ctx = state->av_format_ctx;
+    auto& av_codec_ctx = state->av_codec_ctx;
+    auto& video_stream_index = state->video_stream_index;
+    auto& av_frame = state->av_frame;
+    auto& av_packet = state->av_packet;
+    auto& sws_scaler_ctx = state->sws_scaler_ctx;
 
     // we are looking for a packet for the video stream only
     int response;
@@ -98,38 +116,38 @@ bool load_frame(const char* filename, int* width_out, int* height_out, unsigned 
         break;
     }
 
-    uint8_t* data = new uint8_t[av_frame->width * av_frame->height * 4];
+    if (!sws_scaler_ctx) {
+        sws_scaler_ctx = sws_getContext(
+            width,
+            height,
+            av_codec_ctx->pix_fmt,
+            width,
+            height,
+            AV_PIX_FMT_RGB0,
+            SWS_BILINEAR,
+            NULL,
+            NULL,
+            NULL
+        );
+    }
 
-    SwsContext* sws_scaler_ctx = sws_getContext(
-        av_frame->width,
-        av_frame->height,
-        av_codec_ctx->pix_fmt,
-        av_frame->width,
-        av_frame->height,
-        AV_PIX_FMT_RGB0,
-        SWS_BILINEAR,
-        NULL,
-        NULL,
-        NULL
-    );
     if (!sws_scaler_ctx) {
         printf("Could not initialize sw scaler\n");
         return false;
     }
-    uint8_t* dest[4] = {data, NULL, NULL, NULL};
-    int dest_linesize[4] = { av_frame->width * 4, 0, 0, 0 };
+
+    uint8_t* dest[4] = { frame_buffer, NULL, NULL, NULL };
+    int dest_linesize[4] = { width * 4, 0, 0, 0 };
     sws_scale(sws_scaler_ctx, av_frame->data, av_frame->linesize, 0, av_frame->height, dest, dest_linesize);
-    sws_freeContext(sws_scaler_ctx);
-
-    *width_out = av_frame->width;
-    *height_out = av_frame->height;
-    *data_out = data;
-
-    avformat_close_input(&av_format_ctx);
-    avformat_free_context(av_format_ctx);
-    av_frame_free(&av_frame);
-    av_packet_free(&av_packet);
-    avcodec_free_context(&av_codec_ctx);
 
     return true;
+}
+
+void video_reader_close(VideoReaderState* state) {
+    sws_freeContext(state->sws_scaler_ctx);
+    avformat_close_input(&state->av_format_ctx);
+    avformat_free_context(state->av_format_ctx);
+    av_frame_free(&state->av_frame);
+    av_packet_free(&state->av_packet);
+    avcodec_free_context(&state->av_codec_ctx);
 }

@@ -8,7 +8,7 @@ add_subdirectory(lib/FFmpeg)
 
 list(APPEND SOURCES
     src/main.cxx
-    src/load_frame.cxx
+    src/video_reader.cxx
 )
 
 add_executable(vsapp ${SOURCES})
