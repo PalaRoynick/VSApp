@@ -1,6 +1,13 @@
+extern "C" {
+#include <libavdevice/avdevice.h>
+}
+
 #include "video_reader.hpp"
 
 bool video_reader_open(VideoReaderState* state, const char* filename) {
+
+    avdevice_register_all();
+
     auto& width = state->width;
     auto& height = state->height;
     auto& time_base = state->time_base;
@@ -16,16 +23,43 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
         return false;
     }
 
-    if (avformat_open_input(&av_format_ctx, filename, NULL, NULL) != 0) {
+    const AVInputFormat* av_input_format = NULL;
+    do {
+        av_input_format = av_input_video_device_next(av_input_format);
+        if (av_input_format) {
+            printf("INPUT FORMAT: [%s] %s\n", av_input_format->name, av_input_format->long_name);
+        }
+    } while (av_input_format && strcmp(av_input_format->long_name, "Video4Linux2 device grab") != 0);
+
+    if (!av_input_format) {
+        printf("Could not find v4l2 input format to get webcam\n");
+        return false;
+    }
+
+    // Avoid possible "corrupted data": these options work on my Windows + WSL2 machine
+    AVDictionary *options = NULL;
+    av_dict_set(&options, "input_format", "mjpeg", 0);
+    av_dict_set(&options, "video_size", "640x480", 0);
+    av_dict_set(&options, "framerate", "30", 0);
+    av_dict_set(&options, "pix_fmt", "yuv420p", 0);
+    
+    if (avformat_open_input(&av_format_ctx, "/dev/video0", av_input_format, &options) != 0) {
         printf("Could not open video file\n");
+        // av_dict_free(&options);
+        return false;
+    }
+
+    // av_dict_free(&options);
+
+    if (avformat_find_stream_info(av_format_ctx, NULL) < 0) {
+        printf("Could not find stream information\n");
         return false;
     }
 
     video_stream_index = -1;
-    AVCodecParameters* av_codec_params;
-    AVCodec* av_codec;
+    AVCodecParameters* av_codec_params = NULL;
+    const AVCodec* av_codec = NULL;
 
-    bool found = false;
     for (int i = 0; i < av_format_ctx->nb_streams; ++i) {
         av_codec_params = av_format_ctx->streams[i]->codecpar;
         av_codec = avcodec_find_decoder(av_codec_params->codec_id);
@@ -79,7 +113,7 @@ bool video_reader_open(VideoReaderState* state, const char* filename) {
     return true;
 }
 
-bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int64_t* pts) {
+bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer) {
     auto& width = state->width;
     auto& height = state->height;
     auto& av_format_ctx = state->av_format_ctx;
@@ -91,8 +125,16 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
 
     // we are looking for a packet for the video stream only
     int response;
-    while (av_read_frame(av_format_ctx, av_packet) >= 0) {
+
+    while (av_read_frame(av_format_ctx, av_packet) == 0) {
         if (av_packet->stream_index != video_stream_index) {
+            av_packet_unref(av_packet);
+            continue;
+        }
+
+        // I had an issue here because v4l2.c explicitly sets packet size to 0 when 
+        // it mets corrupted data. Just skip such a packet.
+        if (av_packet->size == 0) {
             av_packet_unref(av_packet);
             continue;
         }
@@ -119,8 +161,6 @@ bool video_reader_read_frame(VideoReaderState* state, uint8_t* frame_buffer, int
         av_packet_unref(av_packet);
         break;
     }
-
-    *pts = av_frame->pts;
 
     if (!sws_scaler_ctx) {
         sws_scaler_ctx = sws_getContext(
