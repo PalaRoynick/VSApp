@@ -7,8 +7,6 @@ set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${FFMPEG_INSTALL_DIR}/lib/pkgcon
 
 list(PREPEND CMAKE_PREFIX_PATH "${FFMPEG_INSTALL_DIR}")
 
-find_package(PkgConfig REQUIRED)
-
 pkg_check_modules(AVCODEC       REQUIRED IMPORTED_TARGET libavcodec)
 pkg_check_modules(AVFORMAT      REQUIRED IMPORTED_TARGET libavformat)
 pkg_check_modules(AVFILTER      REQUIRED IMPORTED_TARGET libavfilter)

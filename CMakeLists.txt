@@ -3,15 +3,20 @@ project(VSApp C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
+option(VSAPP_ENABLE_OPENGL    "Build with OpenGL"    OFF)
+
+find_package(PkgConfig REQUIRED)
+
 add_compile_options("-D__STDC_CONSTANT_MACROS")
 
 add_subdirectory(lib)
-add_subdirectory(lib/glfw)
 
-list(APPEND SOURCES
-    src/main.cxx
-    src/video_reader.cxx
-)
-
-add_executable(vsapp ${SOURCES})
-target_link_libraries(vsapp FFmpeg glfw GL GLU X11)
+if (VSAPP_ENABLE_OPENGL)
+    add_subdirectory(lib/glfw)
+    add_subdirectory(src/OpenGL)
+else()
+    add_subdirectory(src)
+endif()
