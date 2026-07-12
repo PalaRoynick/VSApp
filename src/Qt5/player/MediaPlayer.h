@@ -15,7 +15,7 @@ public:
     explicit MediaPlayer(QObject *parent = nullptr);
     ~MediaPlayer();
 
-    void loadFile(const QString &filePath);
+    void loadFile(const QString &filePath, bool webCam = false);
     void play();
     void pause();
     bool isPlaying() const;

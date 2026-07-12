@@ -17,7 +17,7 @@ public:
     MediaDecoder();
     ~MediaDecoder();
 
-    bool openFile(const std::string &filePath);
+    bool openFile(const std::string &filePath, bool webCam = false);
     bool readNextFrame(); 
     
     AVFrame* getCurrentFrame() const;

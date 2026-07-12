@@ -58,6 +58,10 @@ void Application::setupEnvironment() {
     QStringList args = arguments();
     if (args.size() > 1) {
         setProperty("startupFile", args.at(1));
+        // any second argument means webCam usage, the first one must be correct web video source file
+        if (args.size() > 2) {
+            setProperty("webCam", args.at(2));
+        }
     }
 }
 

@@ -12,9 +12,12 @@ namespace vsapp {
 MainWindow::MainWindow(QWidget *parent) 
     : QMainWindow(parent) {
     player_ = new MediaPlayer(this);
+
     QVariant startupFile = qApp->property("startupFile");
     if (startupFile.isValid() && !startupFile.toString().isEmpty()) {
-        player_->loadFile(startupFile.toString());
+        QVariant webCamData = qApp->property("webCam");
+        bool webCam = webCamData.isValid() && !webCamData.toString().isEmpty();
+        player_->loadFile(startupFile.toString(), webCam);
     }
 
     videoWidget_  = new VideoWidget(this);

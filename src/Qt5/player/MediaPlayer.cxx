@@ -26,10 +26,10 @@ MediaPlayer::~MediaPlayer() {
     delete converter_;
 }
 
-void MediaPlayer::loadFile(const QString &filePath) {
+void MediaPlayer::loadFile(const QString &filePath, bool webCam) {
     pause();
 
-    if (decoder_->openFile(filePath.toStdString())) {
+    if (decoder_->openFile(filePath.toStdString(), webCam)) {
         qDebug() << "File loaded successfully. Resolution:" 
                  << decoder_->getWidth() << "x" << decoder_->getHeight();
 

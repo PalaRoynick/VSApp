@@ -4,6 +4,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
+#include <libavdevice/avdevice.h>
 }
 
 #include <iostream>
@@ -28,13 +29,40 @@ void MediaDecoder::cleanup() {
     isOpened_ = false;
 }
 
-bool MediaDecoder::openFile(const std::string &filePath) {
+bool MediaDecoder::openFile(const std::string &filePath, bool webCam) {
     cleanup();
 
-    if (avformat_open_input(&formatCtx_, filePath.c_str(), nullptr, nullptr) != 0) {
-        std::cerr << "Error: Could not open file " << filePath << std::endl;
+    const AVInputFormat* av_input_format = NULL;
+    if  (webCam) {
+        do {
+            av_input_format = av_input_video_device_next(av_input_format);
+            if (av_input_format) {
+                printf("INPUT FORMAT: [%s] %s\n", av_input_format->name, av_input_format->long_name);
+            }
+        } while (av_input_format && strcmp(av_input_format->long_name, "Video4Linux2 device grab") != 0);
+
+        if (!av_input_format) {
+            printf("Could not find v4l2 input format to get webcam\n");
+            return false;
+        }
+    }
+
+    // Avoid possible "corrupted data": these options work on my Windows + WSL2 machine
+    AVDictionary *options = NULL;
+    if (webCam) {
+        av_dict_set(&options, "input_format", "mjpeg", 0);
+        av_dict_set(&options, "video_size", "640x480", 0);
+        av_dict_set(&options, "framerate", "30", 0);
+        av_dict_set(&options, "pix_fmt", "yuv420p", 0);
+    }
+
+    if (avformat_open_input(&formatCtx_, filePath.c_str(), av_input_format, &options) != 0) {
+        printf("Could not open video file\n");
+        av_dict_free(&options);
         return false;
     }
+
+    av_dict_free(&options);
 
     if (avformat_find_stream_info(formatCtx_, nullptr) < 0) {
         std::cerr << "Error: Could not find stream information" << std::endl;
