@@ -134,10 +134,6 @@ void MediaPlayer::seekTo(int positionMs) {
         emit positionChanged(positionMs, durationMs_);
 
         qDebug() << "Seeked to" << positionMs << "ms";
-
-        if (!isPlaying_) {
-            play();
-        }
     } else {
         qWarning() << "Failed to seek to" << positionMs << "ms";
     }

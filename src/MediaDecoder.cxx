@@ -120,8 +120,13 @@ bool MediaDecoder::readNextFrame() {
 
     if (receiveRet == 0) {
         return true;
+    } else if (receiveRet == AVERROR_EOF) {
+        return false;
     } else if (receiveRet != AVERROR(EAGAIN)) {
-        std::cerr << "readNextFrame: avcodec_receive_frame failed with error: " << receiveRet << std::endl;
+        char errbuf[256];
+        av_strerror(receiveRet, errbuf, sizeof(errbuf));
+        std::cerr << "readNextFrame: avcodec_receive_frame failed: " 
+                  << errbuf << " (code: " << receiveRet << ")" << std::endl;
         return false;
     }
 
