@@ -26,8 +26,8 @@ public:
     double getFps() const;
     bool isOpened() const;
 
-    int64_t getCurrentPosition() const;
-    int64_t getDuration() const;
+    int getCurrentPosition() const;
+    int getDuration() const;
     AVRational getVideoTimeBase() const;
     bool seekToPosition(int64_t timestamp);
 

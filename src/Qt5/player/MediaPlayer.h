@@ -27,6 +27,7 @@ signals:
     void frameReady(const QImage &frame);
     void playbackFinished();
     void positionChanged(int currentPositionMs, int durationMs);
+    void durationChanged(int durationMs);
 
 private slots:
     void decodingLoop();
@@ -38,8 +39,9 @@ private:
     bool isPlaying_ = false;
     int durationMs_ = 0;
     int64_t lastPositionUpdateMs_ = 0;
+    bool webCam_  =  false;
 
-    constexpr static int64_t POSITION_UPDATE_INTERVAL_MS = 20;
+    constexpr static int64_t POSITION_UPDATE_INTERVAL_MS = 100;
 };
 
 } // vsapp

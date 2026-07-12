@@ -191,7 +191,7 @@ bool MediaDecoder::isOpened() const {
     return isOpened_;
 }
 
-int64_t MediaDecoder::getCurrentPosition() const {
+int MediaDecoder::getCurrentPosition() const {
     if (!isOpened_ || !frame_) return 0;
 
     if (frame_->pts == AV_NOPTS_VALUE) {
@@ -204,7 +204,7 @@ int64_t MediaDecoder::getCurrentPosition() const {
     return static_cast<int64_t>(ptsInSeconds * 1000);
 }
 
-int64_t MediaDecoder::getDuration() const {
+int MediaDecoder::getDuration() const {
     if (!isOpened_) return 0;
     return formatCtx_->duration / 1000;
 }

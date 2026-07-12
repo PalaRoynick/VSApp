@@ -16,7 +16,8 @@ public:
 
 public slots:
     void setPlayingState(bool isPlaying);
-    void updateProgress(int currentValue, int maxValue);
+    void updateProgress(int currentValueMs, int maxValueMs);
+    void setDuration(int durationMs);
 
 signals:
     void playPauseClicked();
@@ -31,6 +32,8 @@ private:
 
     void setupUI();
     void setupConnections();
+
+    QString formatTime(int milliseconds) const;
 };
 
 } // vsapp

@@ -9,17 +9,9 @@
 
 namespace vsapp {
 
-MainWindow::MainWindow(QWidget *parent) 
+MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent) {
     player_ = new MediaPlayer(this);
-
-    QVariant startupFile = qApp->property("startupFile");
-    if (startupFile.isValid() && !startupFile.toString().isEmpty()) {
-        QVariant webCamData = qApp->property("webCam");
-        bool webCam = webCamData.isValid() && !webCamData.toString().isEmpty();
-        player_->loadFile(startupFile.toString(), webCam);
-    }
-
     videoWidget_  = new VideoWidget(this);
     controlPanel_ = new ControlPanel(this);
 
@@ -28,6 +20,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     setWindowTitle("VSApp Minimal Video Player");
     resize(800, 600);
+
+    QVariant startupFile = qApp->property("startupFile");
+    if (startupFile.isValid() && !startupFile.toString().isEmpty()) {
+        QVariant webCamData = qApp->property("webCam");
+        bool webCam = webCamData.isValid() && !webCamData.toString().isEmpty();
+        player_->loadFile(startupFile.toString(), webCam);
+    }
 }
 
 MainWindow::~MainWindow() {}
@@ -57,6 +56,9 @@ void MainWindow::setupConnections() {
 
     connect(player_, &MediaPlayer::frameReady,
             videoWidget_, &VideoWidget::displayFrame);
+
+    connect(player_, &MediaPlayer::durationChanged,
+            controlPanel_, &ControlPanel::setDuration);
 
     connect(player_, &MediaPlayer::positionChanged, 
             controlPanel_, &ControlPanel::updateProgress);

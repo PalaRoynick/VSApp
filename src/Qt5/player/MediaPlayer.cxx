@@ -29,9 +29,15 @@ MediaPlayer::~MediaPlayer() {
 void MediaPlayer::loadFile(const QString &filePath, bool webCam) {
     pause();
 
-    if (decoder_->openFile(filePath.toStdString(), webCam)) {
+    webCam_ = webCam;
+    if (decoder_->openFile(filePath.toStdString(), webCam_)) {
         qDebug() << "File loaded successfully. Resolution:" 
                  << decoder_->getWidth() << "x" << decoder_->getHeight();
+
+        if (!webCam_) {
+            durationMs_ = decoder_->getDuration();
+            emit durationChanged(durationMs_);
+        }
 
         double fps = decoder_->getFps();
         if (fps > 0) {
@@ -103,12 +109,12 @@ void MediaPlayer::decodingLoop() {
 
         emit frameReady(frame);
 
-        int64_t currentPosMs = decoder_->getCurrentPosition();
+        int currentPosMs = decoder_->getCurrentPosition();
 
-        // if (currentPosMs - lastPositionUpdateMs_ >= POSITION_UPDATE_INTERVAL_MS) {
-        //     emit positionChanged(static_cast<int>(currentPosMs), durationMs_);
-        //     lastPositionUpdateMs_ = currentPosMs;
-        // }
+        if (!webCam_ && currentPosMs - lastPositionUpdateMs_ >= POSITION_UPDATE_INTERVAL_MS) {
+            emit positionChanged(currentPosMs, durationMs_);
+            lastPositionUpdateMs_ = currentPosMs;
+        }
     } else {
         pause();
         emit playbackFinished();
@@ -116,17 +122,22 @@ void MediaPlayer::decodingLoop() {
 }
 
 void MediaPlayer::seekTo(int positionMs) {
-    if (!decoder_->isOpened()) return;
+    if (!decoder_->isOpened() || durationMs_ == 0) return;
+
+    if (positionMs < 0) positionMs = 0;
+    if (positionMs > durationMs_) positionMs = durationMs_;
 
     AVRational timeBase = decoder_->getVideoTimeBase();
     int64_t timestamp = static_cast<int64_t>(positionMs / (av_q2d(timeBase) * 1000));
 
     if (decoder_->seekToPosition(timestamp)) {
-        int64_t actualPositionMs = decoder_->getCurrentPosition();
+        emit positionChanged(positionMs, durationMs_);
 
-        emit positionChanged(static_cast<int>(actualPositionMs), durationMs_);
+        qDebug() << "Seeked to" << positionMs << "ms";
 
-        qDebug() << "Seeked to" << positionMs << "ms (actual:" << actualPositionMs << "ms)";
+        if (!isPlaying_) {
+            play();
+        }
     } else {
         qWarning() << "Failed to seek to" << positionMs << "ms";
     }
