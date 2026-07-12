@@ -7,4 +7,4 @@ list(APPEND
 )
 
 add_executable(vsapp ${SOURCES_FFMPEG} main.cxx)
-target_link_libraries(vsapp vsapp-qt5)
+target_link_libraries(vsapp vsapp-qt5 FFmpeg)

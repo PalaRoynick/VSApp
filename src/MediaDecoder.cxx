@@ -11,8 +11,7 @@ extern "C" {
 namespace vsapp {
 
 MediaDecoder::MediaDecoder() {
-    // May be useful for streaming via RTSP/HTTP
-    // avformat_network_init();
+    avformat_network_init();
 }
 
 MediaDecoder::~MediaDecoder() {
@@ -84,7 +83,19 @@ bool MediaDecoder::openFile(const std::string &filePath) {
 }
 
 bool MediaDecoder::readNextFrame() {
-    if (!isOpened_) return false;
+    if (!isOpened_) {
+        std::cerr << "readNextFrame: decoder not opened" << std::endl;
+        return false;
+    }
+
+    int receiveRet = avcodec_receive_frame(codecCtx_, frame_);
+
+    if (receiveRet == 0) {
+        return true;
+    } else if (receiveRet != AVERROR(EAGAIN)) {
+        std::cerr << "readNextFrame: avcodec_receive_frame failed with error: " << receiveRet << std::endl;
+        return false;
+    }
 
     while (av_read_frame(formatCtx_, packet_) >= 0) {
         if (packet_->stream_index != videoStreamIndex_) {
@@ -93,15 +104,21 @@ bool MediaDecoder::readNextFrame() {
         }
 
         int sendRet = avcodec_send_packet(codecCtx_, packet_);
+        av_packet_unref(packet_);
 
-        av_packet_unref(packet_); 
+        if (sendRet < 0) {
+            continue;
+        }
 
-        if (packet_->size == 0) { continue; }
-
-        if (sendRet < 0) { break; }
-
-        while (avcodec_receive_frame(codecCtx_, frame_) == 0) {
+        receiveRet = avcodec_receive_frame(codecCtx_, frame_);
+        
+        if (receiveRet == 0) {
             return true;
+        } else if (receiveRet == AVERROR(EAGAIN)) {
+            continue;
+        } else {
+            std::cerr << "readNextFrame: avcodec_receive_frame failed after send_packet" << std::endl;
+            return false;
         }
     }
 

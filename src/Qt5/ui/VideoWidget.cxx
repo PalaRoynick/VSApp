@@ -28,7 +28,7 @@ void VideoWidget::paintEvent(QPaintEvent *event) {
     if (!currentFrame_.isNull()) {
         QImage scaledFrame = currentFrame_.scaled(
             size(), 
-            Qt::KeepAspectRatio, 
+            Qt::KeepAspectRatio,
             Qt::SmoothTransformation
         );
 

@@ -3,10 +3,16 @@ project(VSApp C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
+option(VSAPP_ENABLE_OPENGL    "Build with OpenGL"    OFF)
+option(VSAPP_ENABLE_SANITIZER "Build with memory sanitizer" OFF)
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-option(VSAPP_ENABLE_OPENGL    "Build with OpenGL"    OFF)
+if (VSAPP_ENABLE_SANITIZER)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+endif()
 
 find_package(PkgConfig REQUIRED)
 

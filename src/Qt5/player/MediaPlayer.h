@@ -37,6 +37,9 @@ private:
     QTimer *decodeTimer_ = nullptr;
     bool isPlaying_ = false;
     int durationMs_ = 0;
+    int64_t lastPositionUpdateMs_ = 0;
+
+    constexpr static int64_t POSITION_UPDATE_INTERVAL_MS = 20;
 };
 
 } // vsapp

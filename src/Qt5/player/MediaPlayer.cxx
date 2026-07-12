@@ -4,6 +4,10 @@
 #include <QTimer>
 #include <QDebug>
 
+extern "C" {
+#include <libavutil/frame.h>
+}
+
 namespace vsapp {
 
 MediaPlayer::MediaPlayer(QObject *parent) 
@@ -18,6 +22,8 @@ MediaPlayer::MediaPlayer(QObject *parent)
 
 MediaPlayer::~MediaPlayer() {
     pause();
+    delete decoder_;
+    delete converter_;
 }
 
 void MediaPlayer::loadFile(const QString &filePath) {
@@ -60,15 +66,49 @@ bool MediaPlayer::isPlaying() const {
 }
 
 void MediaPlayer::decodingLoop() {
+    if (!decoder_ || !converter_ || !decodeTimer_) {
+        qDebug() << "decodingLoop: null pointers detected, stopping timer";
+        if (decodeTimer_) {
+            decodeTimer_->stop();
+        }
+        return;
+    }
+
+    if (!decoder_->isOpened()) {
+        qDebug() << "decodingLoop: decoder not opened, stopping timer";
+        decodeTimer_->stop();
+        return;
+    }
+
+    if (!isPlaying_) {
+        qDebug() << "decodingLoop: not playing, stopping timer";
+        decodeTimer_->stop();
+        return;
+    }
+
     if (decoder_->readNextFrame()) {
         AVFrame *rawFrame = decoder_->getCurrentFrame();
+
+        if (!rawFrame || !rawFrame->data[0]) {
+            qDebug() << "decodingLoop: invalid frame received";
+            return;
+        }
+
         QImage frame = converter_->convertToQImage(rawFrame);
+
+        if (frame.isNull()) {
+            qDebug() << "decodingLoop: frame conversion failed";
+            return;
+        }
 
         emit frameReady(frame);
 
         int64_t currentPosMs = decoder_->getCurrentPosition();
 
-        emit positionChanged(static_cast<int>(currentPosMs), durationMs_);
+        // if (currentPosMs - lastPositionUpdateMs_ >= POSITION_UPDATE_INTERVAL_MS) {
+        //     emit positionChanged(static_cast<int>(currentPosMs), durationMs_);
+        //     lastPositionUpdateMs_ = currentPosMs;
+        // }
     } else {
         pause();
         emit playbackFinished();
