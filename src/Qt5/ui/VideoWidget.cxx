@@ -9,7 +9,9 @@ VideoWidget::VideoWidget(QWidget *parent) : QWidget(parent) {
     palette.setColor(QPalette::Window, Qt::black);
     setPalette(palette);
 
-    setFocusPolicy(Qt::NoFocus); 
+    setFocusPolicy(Qt::NoFocus);
+
+    setCursor(Qt::PointingHandCursor);
 }
 
 void VideoWidget::displayFrame(const QImage &frame) {
@@ -37,6 +39,14 @@ void VideoWidget::paintEvent(QPaintEvent *event) {
 
         painter.drawImage(x, y, scaledFrame);
     }
+}
+
+void VideoWidget::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        emit clicked();
+    }
+
+    QWidget::mousePressEvent(event);
 }
 
 } // vsapp

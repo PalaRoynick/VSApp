@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QImage>
+#include <QMouseEvent>
 
 namespace vsapp {
 
@@ -13,8 +14,12 @@ public:
 public slots:
     void displayFrame(const QImage &frame);
 
+signals:
+    void clicked();
+
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
 
 private:
     QImage currentFrame_;

@@ -45,14 +45,18 @@ void MainWindow::setupUI() {
 }
 
 void MainWindow::setupConnections() {
-    connect(controlPanel_, &ControlPanel::playPauseClicked, this, [this]() {
+    auto togglePlayback = [this] () {
         if (player_->isPlaying()) {
             player_->pause();
         } else {
             player_->play();
         }
         controlPanel_->setPlayingState(player_->isPlaying());
-    });
+    };
+
+    connect(controlPanel_, &ControlPanel::playPauseClicked, this, togglePlayback);
+
+    connect(videoWidget_, &VideoWidget::clicked, this, togglePlayback);
 
     connect(player_, &MediaPlayer::frameReady,
             videoWidget_, &VideoWidget::displayFrame);
